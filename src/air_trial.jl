@@ -47,7 +47,8 @@ Base.show(io::IO, ::MIME"text/plain", T::AIRTrialResult) =
 
 
 function generate_data(ℙy::Vector{<:UnivariateDistribution}, n::Int, p::AbstractWeights)
-    x = rand(Categorical(p), n)
+    # x = rand(Categorical(p), n)
+    x = randomise(MassWeightedUrn(p, 4), n)
     y = rand.(ℙy[x])
     return (x, y)
 end
@@ -133,19 +134,11 @@ function trial_DF(res::Vector{AIRTrialResult})
     for field in fields
         push!(
             DF,
-            vcat(
-                [
-                    (
-                        f = getfield(x, field);
-                        hcat(
-                            DataFrame(:interim => 1:size(f, 1)),
-                            DataFrame(
-                                f,
-                                Symbol.(string(field) .* "_" .* string.(1:size(f, 2))),
-                            ),
-                        )
-                    ) for x in res
-                ]...,
+            vcat([(f = getfield(x, field);
+            hcat(
+                DataFrame(:interim => 1:size(f, 1)),
+                DataFrame(f, Symbol.(string(field) .* "_" .* string.(1:size(f, 2)))))
+                ) for x in res]...,
                 source = :trial => 1:size(res, 1),
             ),
         )

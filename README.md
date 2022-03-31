@@ -2,6 +2,15 @@
 
 AIR: **A**daptive clinical trial **I**nvestigating GLA-targeted therapies in the **R**espiratory disease COPD
 
+## Background
+
+The aim for AIR is to evaluate multiple novel interventions against a shared control group. The primary outcome is neutraphil elastase (NE) at D28 (i.e. 28 days after randomisation).
+
+
+
+----
+## Scripts
+
 This code base is using the Julia Language and [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/) to make a reproducible scientific project named
 > AIR
 
@@ -21,7 +30,7 @@ To (locally) reproduce this project, do the following:
 This will install all necessary packages for you to be able to run the scripts and
 everything should work out of the box, including correctly finding local paths.
 
-## Run Simulation
+### Run Simulation
 
 To run a simulation file, call for example
 
