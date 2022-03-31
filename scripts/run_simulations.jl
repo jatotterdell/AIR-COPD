@@ -4,26 +4,8 @@ quickactivate(@__DIR__, "AIR")
 using Parameters, LinearAlgebra, Distributions, StatsBase, StatsModels, DataFrames, Optim
 using AIR
 
-
-"""
-    run_sims_threads(id::Int, T::AIRTrialParameters, n::Int = 10_000)
-
-Run the AIR-COPD simulation for `n` iterations under configuration `T` with label `id` for saving the results.
-Results are saved in `datadir("sims")` with filename `sim_\$(id)`.
-"""
-function run_sims_threads(id::Int, T::AIRTrialParameters, n::Int = 10_000)
-    d = struct2dict(T)
-    res = Vector{AIRTrialResult}(undef, n)
-    Threads.@threads for i = 1:n
-        res[i] = simulate(T)
-    end
-    out_wide = trial_DF(res)
-    out_long = long_trial_DF(out_wide)
-    d[:result] = out_long
-    wsave(datadir("sims", "sim_$(id).jld2"), d)
-    return out_long
-end
-
+# Pre-compile
+run_sims_threads(9999, AIRTrialParameters(), 2)
 
 # Specify all configurations to explore
 allparams = Dict(

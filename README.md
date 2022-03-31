@@ -6,9 +6,8 @@ AIR: **A**daptive clinical trial **I**nvestigating GLA-targeted therapies in the
 
 The aim for AIR is to evaluate multiple novel interventions against a shared control group. The primary outcome is neutraphil elastase (NE) at D28 (i.e. 28 days after randomisation).
 
-
-
 ----
+
 ## Scripts
 
 This code base is using the Julia Language and [DrWatson](https://juliadynamics.github.io/DrWatson.jl/stable/) to make a reproducible scientific project named
@@ -32,8 +31,16 @@ everything should work out of the box, including correctly finding local paths.
 
 ### Run Simulation
 
-To run a simulation file, call for example
+To run a simulation file using multi-threading, call for example
 
 ```shell
 julia -t auto scripts/run_simulations.jl
+```
+
+or with `auto` replaced with the number of threads.
+
+Alternatively, if sysimage has been created can instead use
+
+```shell
+julia -t auto --sysimage=AIRproject.so scripts/run_simulations.jl
 ```
