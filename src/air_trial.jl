@@ -2,17 +2,23 @@
     AIRTrialParameters
 """
 @with_kw struct AIRTrialParameters
-    μ::Vector{<:Real} = [2.0, 2.0, 2.0, 2.0]
-    σ::Real = 1.6
-    Π::Vector{<:UnivariateDistribution} = [Normal.(0, [5, 5, 5, 5]); InverseGamma(1, 1)]
+    μ::Vector{<:Real} = [0.5, 0.5, 0.5, 0.5]
+    σ::Real = 2
+    Π::Vector{<:UnivariateDistribution} = [Normal(0.5, 0.5); Normal.(zeros(3), 1); InverseGamma(1.5, 6)]
     X::Matrix{Float64} = hcat(ones(4), vcat(zeros(3)', diagm(ones(3))))
-    nseq::AbstractVector = 100:40:180
+    nseq::AbstractVector = 100:50:200
     p::AbstractWeights = weights([0.25 for _ = 1:4])
     ϵ0::Float64 = 0.1
     ϵ1::Float64 = 0.9
     method::String = "Laplace"
 end
 
+
+"""
+    AIRTrialParameters(d::Dict)
+
+Convert a `Dict` into an instance of `AIRTrialParameters` using keyword arguments.
+"""
 function AIRTrialParameters(d::Dict)
     args = (; (Symbol(k) => v for (k, v) in d)...)
     AIRTrialParameters(; args...)
@@ -46,6 +52,13 @@ Base.show(io::IO, ::MIME"text/plain", T::AIRTrialResult) =
     @printf(io, "AIRTrialResult(interims=%i)", size(T.𝐏, 1))
 
 
+
+"""
+    generate_data(ℙy::Vector{<:UnivariateDistribution}, n::Int, p::AbstractWeights)
+
+Generate trial data.
+`n` outcomes are generated from `ℙy` and treatment assignments from `p`.
+"""
 function generate_data(ℙy::Vector{<:UnivariateDistribution}, n::Int, p::AbstractWeights)
     # x = rand(Categorical(p), n)
     x = randomise(MassWeightedUrn(p, 4), n)
@@ -75,6 +88,11 @@ function decide(𝐏, 𝐃, ϵ0, ϵ1)
 end
 
 
+"""
+    simulate(T::AIRTrialParameters)
+
+Simulate an AIR trial under parameters `T`.
+"""
 function simulate(T::AIRTrialParameters)
     @unpack μ, σ, Π, X, nseq, p, ϵ0, ϵ1 = T
     ℙy = Normal.(μ, σ)
@@ -94,20 +112,24 @@ function simulate(T::AIRTrialParameters)
     interims = 0
     for interim = 1:N
         interims += 1
+        # Data generation and storage
         x_new, y_new = generate_data(ℙy, n_new[interim], p_cur)
         x = vcat(x, x_new)
         y = vcat(y, y_new)
         n[interim, :] = [count(==(z), x) for z = 1:4]
         ȳ[interim, :] = [mean(y[x.==z]) for z = 1:4]
+        # Model approximation
         μ, Σ = LaplaceApproximation(lposterior, X[x, :], y, Π)
         M = MvNormal(μ[1:end-1], Σ[1:end-1, 1:end-1])
+        # Outputs
         ℙμ[interim, :] = marginal(X * M)
         ℙθ[interim, :] = marginal(M)
         𝐏[interim, :] = [NaN; cdf.(ℙθ[interim, 2:end], 0)]
+        # Decisions
         𝐃[interim, :] =
             interim == 1 ? decide(𝐏[interim, :], zeros(Int, K), ϵ0, ϵ1) :
             decide(𝐏[interim, :], 𝐃[interim-1, :], ϵ0, ϵ1)
-        # 𝐃[interim, :] = [0; [q .< ϵ0 ? 1 : q .> ϵ1 ? 2 : 0 for q in 𝐏[interim, 2:end]]]
+        # Update target allocations
         p_cur = weights(normalize(p_cur .* [1; (𝐃[interim, 2:end] .== 0)], 1))
         if all(𝐃[interim, 2:end] .!= 0)
             break
@@ -125,8 +147,9 @@ end
 
 
 """
+    trial_DF(res::Vector{AIRTrialResult})
 
-Hack function to make a DataFrame out of a vector of trial results.
+Hack function to make a `DataFrame` out of a vector of trial results.
 """
 function trial_DF(res::Vector{AIRTrialResult})
     fields = fieldnames(AIRTrialResult)
@@ -134,11 +157,19 @@ function trial_DF(res::Vector{AIRTrialResult})
     for field in fields
         push!(
             DF,
-            vcat([(f = getfield(x, field);
-            hcat(
-                DataFrame(:interim => 1:size(f, 1)),
-                DataFrame(f, Symbol.(string(field) .* "_" .* string.(1:size(f, 2)))))
-                ) for x in res]...,
+            vcat(
+                [
+                    (
+                        f = getfield(x, field);
+                        hcat(
+                            DataFrame(:interim => 1:size(f, 1)),
+                            DataFrame(
+                                f,
+                                Symbol.(string(field) .* "_" .* string.(1:size(f, 2))),
+                            ),
+                        )
+                    ) for x in res
+                ]...,
                 source = :trial => 1:size(res, 1),
             ),
         )
@@ -153,8 +184,9 @@ end
 
 
 """
+    long_trial_DF(DF::DataFrame)
 
-Transforms the result of `trial_DF` into long rather than wide.
+Transforms the result of `trial_DF` into long rather than wide format.
 """
 function long_trial_DF(DF::DataFrame)
     fields = fieldnames(AIRTrialResult)
@@ -169,6 +201,11 @@ function long_trial_DF(DF::DataFrame)
 end
 
 
+"""
+    summarise_trial(DF::DataFrame)
+
+Summarise the results of a trial stored in a long `DataFrame` (i.e. from `long_trial_DF()`)
+"""
 function summarise_trial(DF::DataFrame)
     function meanmean(x)
         mean(mean.(x))
@@ -202,6 +239,6 @@ function run_sims_threads(id::Int, T::AIRTrialParameters, n::Int = 10_000)
     out_long = long_trial_DF(out_wide)
     d[:result] = out_long
     d[:time] = time() - t
-    wsave(datadir("sims", "sim_$(id).jld2"), d)
+    wsave(datadir("sims", "sim_$(lpad(string(id), 2, "0")).jld2"), d)
     return out_long
 end
