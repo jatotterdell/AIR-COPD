@@ -1,17 +1,22 @@
 name = "AIR"
-authors = ["jatotterdell"]
+uuid = "e501cd01-cf87-4705-85cf-c4f942f7f311"
+authors = ["jatotterdell <jatotterdell@gmail.com>"]
+version = "0.0.1"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+Highlights = "eafb193a-b7ab-5a9e-9068-77385905fa72"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 RandomisationModels = "fb46300e-f66b-4f64-8dd8-39774d938a41"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+StanSample = "c1514b29-d3a0-5178-b312-660c88baa699"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 Weave = "44d3d7a6-8a23-5bf8-98c5-b353f8df5ec9"
