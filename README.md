@@ -44,3 +44,12 @@ Alternatively, if sysimage has been created can instead use
 ```shell
 julia -t auto --sysimage=AIRproject.so scripts/run_simulations.jl
 ```
+
+### Tests
+
+Some basic tests implemented in `test/` which can be run via
+
+```julia
+pkgs> activate .
+(AIR) pkg> test
+```
