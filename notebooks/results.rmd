@@ -1,0 +1,228 @@
+---
+title: "AIR-COPD Simulations"
+author: "James Totterdell"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 4,
+  fig.height = 3,
+  fig.position = "H"
+)
+```
+
+
+```{r}
+library(stringi)
+library(kableExtra)
+library(magrittr)
+library(ggplot2)
+library(scales)
+library(JuliaCall)
+library(invgamma)
+
+theme_set(theme_minimal(base_size = 10, base_family = "Palatino"))
+
+
+kable_default <- function(tab, ...) {
+  kable_styling(
+    kable(
+      tab,
+      format = "latex",
+      booktabs = TRUE,
+      digits = 2,
+      linesep = "",
+      ...
+    ),
+    latex_options = "HOLD_position"
+  )
+}
+
+
+config_table <- function(config) {
+  kable_default(config, escape = TRUE)
+}
+
+
+result_table <- function(result) {
+  tab <- result[, c(1:4, 9, 13:14)]
+  colnames(tab) <- c(
+    "Interim", "Arm",
+    "$\\mathbb{E}(n)$", "$\\mathbb{E}(\\bar{y})$",
+    "$\\mathbb{E}[\\mathbb{E}[\\beta|y]]$",
+    "$\\mathbb{E}[\\phi_1(y)]$", "$\\mathbb{E}[\\phi_2(y)]$"
+  )
+  kable_default(tab, escape = FALSE)
+}
+```
+
+# Model
+
+For simplicity, the assumed model for Neutraphil Elastase (NE) at day 28 is
+$$
+\log_{10}(Y_i) \sim \text{Normal}(\alpha + x_i^{\mathsf{T}}\beta, \sigma^2)
+$$
+where $\beta_p$ is the difference in mean NE under treatment $p\in\{1,2,3\}$ relative to control and $x_i$ indicates the treatment received by participant $i$. Actual model would adjust for baseline NE and allow for multiple follow-up NE measurements (i.e. two measurements 7 days apart as indicated).
+
+Treatments which reduce NE relative to control are considered promising. This is quantified by
+$$
+P_p = \mathbb P(\beta_p < 0|y), p = 1,2,3.
+$$
+and $P = (P_1, P_2, P_3)$.
+
+The decision rules are
+$$
+\begin{aligned}
+\phi_1(y) &= \mathbb I(P < \epsilon_0) \quad \text{(drop-out)} \\
+\phi_2(y) &= \mathbb I(P > \epsilon_1) \quad \text{(graduate)} 
+\end{aligned}
+$$
+
+## Priors 
+
+For model parameters, the following draft priors were specified (on $\log_{10} \mu$g/ml NE)
+
+$$
+\begin{aligned}
+\alpha &\sim \text{Normal}(0.5, 0.5) \\
+\beta &\sim \text{Normal}(0, 1) \\
+\sigma^2 &\sim \text{Inverse-Gamma}(1.5, 6)
+\end{aligned}
+$$
+
+```{r, fig.cap = "Prior predictive $\\log_{10} \\mu$g/ml NE assuming $\\alpha\\sim\\text{Normal}(0.5, 0.5^2)$, $\\beta\\sim\\text{Normal}(0, 1)$ and $\\sigma^2\\sim \\text{Inverse-Gamma}(1.5, 6)$."}
+alpha_mean <- 0.5
+alpha_sd <- 0.5
+beta_mean <- 0
+beta_sd <- 1
+sigmasq_par <- c(1.5, 6)
+
+alpha <- rnorm(1e5, alpha_mean, alpha_sd)
+beta <- rnorm(1e5, beta_mean, beta_sd)
+sigma <- sqrt(rinvgamma(1e5, sigmasq_par[1], sigmasq_par[2]))
+y0 <- rnorm(1e5, alpha, sigma)
+y1 <- rnorm(1e5, alpha + beta, sigma)
+
+ggplot(data.frame(x = rep(c("Control", "Intervention"), each = 1e5), y = c(10^y0, 10^y1)), aes(x, y)) +
+  geom_boxplot(outlier.shape = NA) +
+  scale_y_continuous(bquote("NE (" * mu * "g/ml)"),
+    trans = "log10",
+    labels = label_comma(), breaks = c(0.1, 1, 10, 100, 1000)
+  ) +
+  coord_cartesian(ylim = c(0.01, 1000))
+```
+
+# Design
+
+Initially, we only consider 3 investigational arms plus control. We assume the 3 active arms continue to receive participants until either the intervention is dropped-out, graduated, or the maximum sample size is reached.
+
+An alternative would be to cap sample size on investigational arms (to 50?). E.g. an arm fails to "graduate" by 50 participants, then could potentially drop it out and introduce a new active treatment option. Maintaining 3 active investigational arms at all times. If a cap of 50, could assess futility by predictive probability of graduating an arm once 50 participants allocated to it.
+
+# Simulations
+
+- Maximum sample size of 200 participants.
+- Only 3 active arms plus control with no new arms introduced even if some active are dropped or graduate.
+- No sample size cap is applied to active arms, e.g. if one arm is dropped the other arms may receive more than 50 participants up to the max of 200.
+- effectiveness assessments after 100, 150, and 200 participants followed-up.
+
+\clearpage
+
+# Example
+
+```{julia}
+using DrWatson
+quickactivate(@__DIR__, "AIR")
+using DataFrames, Distributions
+using Pipe: @pipe
+using AIR
+
+function format_config(res::DataFrame)
+  return combine(res, 
+    :ϵ0 => identity => :epislon_0, 
+    :ϵ1 => identity => :epislon_1, 
+    :nseq => ByRow(maximum) => :nmax,
+    :μ => ByRow(x -> "$(x[2:end] .- x[1])") => :beta,
+    :σ => identity => :sigma,
+    :Π => ByRow(x -> "$(scale(x[1]))") => :prior_sd_alpha,
+    :Π => ByRow(x -> "$(scale(x[2]))") => :prior_sd_beta,
+    :Π => ByRow(x -> "$(params(x[5]))") => :prior_sigma
+  ; renamecols=false)
+end
+
+# Tail result was for pre-compile, so exclude
+results = collect_results(datadir("sims"))[1:end-1,:];
+res = results.result;
+out = summarise_trial.(res);
+config = format_config(results);
+
+# Extract example trial
+example = @pipe res[1] |>
+  filter(:trial => in([1,2]), _) |>
+  transform(_, :ℙθ .=> [ByRow(location), ByRow(scale)] .=> [:mean_beta, :sd_beta]) |>
+  select(_, [:trial, :interim, :arm, :n, :ȳ, :mean_beta, :sd_beta, :𝐏, :𝐃]) |>
+  sort(_, [:trial, :interim, :arm]) |>
+  rename(_, :ȳ => :y_bar, :𝐏 => :P, :𝐃 => :D)
+```
+
+```{r julia-results}
+example <- julia_eval("example")
+config <- julia_eval("config")
+out <- julia_eval("out")
+```
+
+```{r}
+example
+```
+
+\clearpage
+
+# Operating Characteristics
+
+```{r}
+id <- 1
+config_table(config[id, ])
+```
+
+```{r}
+result_table(out[[id]])
+```
+
+
+```{r}
+id <- 5
+config_table(config[id, ])
+```
+
+```{r}
+result_table(out[[id]])
+```
+
+
+```{r}
+id <- 9
+config_table(config[id, ])
+```
+
+```{r}
+result_table(out[[id]])
+```
+
+```{r}
+id <- 13
+config_table(config[id, ])
+```
+
+```{r}
+result_table(out[[id]])
+```
