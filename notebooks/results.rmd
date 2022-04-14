@@ -181,10 +181,6 @@ config <- julia_eval("config")
 out <- julia_eval("out")
 ```
 
-```{r}
-example
-```
-
 \clearpage
 
 # Operating Characteristics
