@@ -4,7 +4,8 @@
 @with_kw struct AIRTrialParameters
     μ::Vector{<:Real} = [0.5, 0.5, 0.5, 0.5]
     σ::Real = 2
-    Π::Vector{<:UnivariateDistribution} = [Normal(0.5, 0.5); Normal.(zeros(3), 1); InverseGamma(1.5, 6)]
+    Π::Vector{<:UnivariateDistribution} =
+        [Normal(0.5, 0.5); Normal.(zeros(3), 1); InverseGamma(1.5, 6)]
     X::Matrix{Float64} = hcat(ones(4), vcat(zeros(3)', diagm(ones(3))))
     nseq::AbstractVector = 100:50:200
     p::AbstractWeights = weights([0.25 for _ = 1:4])
@@ -52,6 +53,31 @@ Base.show(io::IO, ::MIME"text/plain", T::AIRTrialResult) =
     @printf(io, "AIRTrialResult(interims=%i)", size(T.𝐏, 1))
 
 
+function sampling(n::Int, p::AbstractWeights)
+    randomise(MassWeightedUrn(p, 2), n)
+end
+
+
+function randomise_new(
+    n::Int,
+    p::AbstractWeights,
+    n_current::Vector{Int} = zeros(Int, length(p)),
+    n_max::Int = Inf,
+)
+    n_rem = max.(0, n_max .- n_current) .* (p .> 0)
+    n_tot = sum(n_rem)
+    if n_tot <= n # In this case, recruitment will cover all remaining participants
+        n_new = n_rem
+    else # Otherwise, residual sampling
+        n_new = min.(n_rem, floor.(Int, n * p))
+        n_rem = max.(n_max .- n_current .- n_new) .* (p .> 0)
+        M = sum(n_new)
+        R = n - M
+        n_new += residual_sampling(R, p .* (n_rem .> 0))
+    end
+    return n_new
+end
+
 
 """
     generate_data(ℙy::Vector{<:UnivariateDistribution}, n::Int, p::AbstractWeights)
@@ -60,8 +86,7 @@ Generate trial data.
 `n` outcomes are generated from `ℙy` and treatment assignments from `p`.
 """
 function generate_data(ℙy::Vector{<:UnivariateDistribution}, n::Int, p::AbstractWeights)
-    # x = rand(Categorical(p), n)
-    x = randomise(MassWeightedUrn(p, 4), n)
+    x = sampling(n, p)
     y = rand.(ℙy[x])
     return (x, y)
 end
@@ -92,6 +117,9 @@ end
     simulate(T::AIRTrialParameters)
 
 Simulate an AIR trial under parameters `T`.
+
+There is no cap on sample sizes to active arms, instead 
+stopping only occurs at the maximum sample size.
 """
 function simulate(T::AIRTrialParameters)
     @unpack μ, σ, Π, X, nseq, p, ϵ0, ϵ1 = T
@@ -143,6 +171,25 @@ function simulate(T::AIRTrialParameters)
         𝐏[1:interims, :],
         𝐃[1:interims, :],
     )
+end
+
+
+
+"""
+    simulate2(T::AIRTrialParameters)
+
+In `simulate2` we enforce a maximum sample size per arm. 
+For example, if an arm has 50 participants assigned, then allocations 
+to it will cease, irrespective of whether a decision has been met or 
+whether the maximum sample size has not yet been reached.
+
+The idea being that, in the actual trial, an intervention which has hit 50
+sample size without graduating may be swapped out for a new investigative treatment.
+This is to avoid endlessly allocating to current interventions meaning 
+new interventions have no opportunity to be investigated.
+"""
+function simulate2(T::AIRTrialParameters)
+    return nothing
 end
 
 
