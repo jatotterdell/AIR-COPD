@@ -158,7 +158,7 @@ function format_config(res::DataFrame)
     :Π => ByRow(x -> "$(scale(x[2]))") => :prior_sd_beta,
     :Π => ByRow(x -> "$(params(x[5]))") => :prior_sigma
   ; renamecols=false)
-end
+end;
 
 # Tail result was for pre-compile, so exclude
 results = collect_results(datadir("sims"))[1:end-1,:];
@@ -172,7 +172,7 @@ example = @pipe res[1] |>
   transform(_, :ℙθ .=> [ByRow(location), ByRow(scale)] .=> [:mean_beta, :sd_beta]) |>
   select(_, [:trial, :interim, :arm, :n, :ȳ, :mean_beta, :sd_beta, :𝐏, :𝐃]) |>
   sort(_, [:trial, :interim, :arm]) |>
-  rename(_, :ȳ => :y_bar, :𝐏 => :P, :𝐃 => :D)
+  rename(_, :ȳ => :y_bar, :𝐏 => :P, :𝐃 => :D);
 ```
 
 ```{r julia-results}
