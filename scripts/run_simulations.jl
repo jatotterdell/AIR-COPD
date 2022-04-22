@@ -11,9 +11,11 @@ run_sims_threads(9999, AIRTrialParameters(), 2)
 # Specify all configurations to explore
 α = 0.5
 β = [[0, 0, 0, 0], [0, -0.5, 0, 0], [0, -1, 0, 0], [0, -0.5, -0.5, 0]]
+η = [α .+ b for b in β]
+σ = [1, 1.5]
+ℙy = [Normal.(m, s) for m in η for s in σ]
 allparams = Dict(
-    "μ" => [α .+ β[i] for i = 1:4],
-    "σ" => [1, 1.5],
+    "ℙy" => ℙy,
     "nseq" => [100:50:200, 100:50:250],
     "ϵ0" => [0.1, 0.2],
     "ϵ1" => 0.9,
