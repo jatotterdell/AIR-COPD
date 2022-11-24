@@ -4,7 +4,7 @@ using DrWatson
 using Reexport
 @reexport using Distributions
 using LinearAlgebra, Parameters, Printf, StatsBase, DataFrames, Optim, Printf
-using RandomisationModels # For MassWeightedUrn
+using RandomisationModels: MassWeightedUrn # For MassWeightedUrn
 
 export AIRTrialParameters, AIRTrialResult
 export LaplaceApproximation, marginal

@@ -8,7 +8,7 @@
         [Normal(0.5, 0.5); Normal.(zeros(3), 1); InverseGamma(1.5, 6)]
     X::Matrix{Float64} = hcat(ones(4), vcat(zeros(3)', diagm(ones(3))))
     nseq::AbstractVector = 100:50:200
-    p::AbstractWeights = weights([0.25 for _ = 1:4])
+    p::AbstractWeights = StatsBase.weights([0.25 for _ = 1:4])
     ϵ0::Float64 = 0.1
     ϵ1::Float64 = 0.9
     method::String = "Laplace"
@@ -158,7 +158,7 @@ function simulate(T::AIRTrialParameters)
             interim == 1 ? decide(𝐏[interim, :], zeros(Int, K), ϵ0, ϵ1) :
             decide(𝐏[interim, :], 𝐃[interim-1, :], ϵ0, ϵ1)
         # Update target allocations
-        p_cur = weights(normalize(p_cur .* [1; (𝐃[interim, 2:end] .== 0)], 1))
+        p_cur = StatsBase.weights(normalize(p_cur .* [1; (𝐃[interim, 2:end] .== 0)], 1))
         if all(𝐃[interim, 2:end] .!= 0)
             break
         end
