@@ -2,7 +2,9 @@
 title: "AIR-COPD Simulations"
 author: "James Totterdell"
 date: "`r Sys.Date()`"
-format: pdf
+format: 
+    pdf:
+        toc: true
 ---
 
 ```{r setup, include=FALSE}
