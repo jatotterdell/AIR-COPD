@@ -2,12 +2,7 @@
 title: "AIR-COPD Simulations"
 author: "James Totterdell"
 date: "`r Sys.Date()`"
-output: 
-  bookdown::pdf_document2:
-    latex_engine: xelatex
-geometry: margin=1in
-fontfamily: mathpazo
-fontsize: 11pt
+format: pdf
 ---
 
 ```{r setup, include=FALSE}
@@ -21,7 +16,6 @@ knitr::opts_chunk$set(
   fig.position = "H"
 )
 ```
-
 
 ```{r}
 library(stringi)
@@ -194,7 +188,6 @@ config_table(config[id, ])
 result_table(out[[id]])
 ```
 
-
 ```{r}
 id <- 5
 config_table(config[id, ])
@@ -203,7 +196,6 @@ config_table(config[id, ])
 ```{r}
 result_table(out[[id]])
 ```
-
 
 ```{r}
 id <- 9
